@@ -1,0 +1,561 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>麦麦米米クラブ</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Chalkduster&display=swap" rel="stylesheet">
+    <style>
+        body {
+            font-family: 'Chalkduster', cursive; /* Hand-drawn style font */
+            background-color: #f0f0f0;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            margin: 0;
+            overflow: hidden; /* Prevent scrollbars */
+        }
+        .game-container {
+            background-color: #ffffff;
+            border: 4px solid #333;
+            border-radius: 15px;
+            box-shadow: 8px 8px 0px rgba(0, 0, 0, 0.2);
+            padding: 20px;
+            text-align: center;
+            position: relative;
+            width: 100%;
+            max-width: 800px; /* Max width for desktop */
+            aspect-ratio: 16 / 9; /* Maintain aspect ratio */
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+        }
+        canvas {
+            background-color: #e0e0e0;
+            border: 2px dashed #666; /* Hand-drawn border effect */
+            border-radius: 10px;
+            width: 100%;
+            height: auto; /* Responsive height */
+            margin-bottom: 20px;
+        }
+        .ui-panel {
+            display: flex;
+            justify-content: space-around;
+            width: 100%;
+            margin-top: 10px;
+            gap: 10px;
+        }
+        .game-button {
+            background: linear-gradient(145deg, #ff6b6b, #ee5253);
+            color: white;
+            padding: 15px 30px;
+            border: 3px solid #c0392b;
+            border-radius: 10px;
+            font-size: 1.5rem;
+            cursor: pointer;
+            transition: all 0.2s ease-in-out;
+            box-shadow: 4px 4px 0px rgba(0, 0, 0, 0.2);
+            flex-grow: 1;
+        }
+        .game-button:hover {
+            background: linear-gradient(145deg, #ee5253, #ff6b6b);
+            box-shadow: 2px 2px 0px rgba(0, 0, 0, 0.2);
+            transform: translateY(2px);
+        }
+        .game-button:active {
+            transform: translateY(4px);
+            box-shadow: none;
+        }
+        .start-button {
+            background: linear-gradient(145deg, #4CAF50, #45a049);
+            border: 3px solid #388e3c;
+        }
+        .start-button:hover {
+            background: linear-gradient(145deg, #45a049, #4CAF50);
+        }
+        .message-box {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background-color: rgba(0, 0, 0, 0.8);
+            color: white;
+            padding: 20px 30px;
+            border-radius: 10px;
+            font-size: 1.8rem;
+            text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.5);
+            z-index: 1000;
+            display: none; /* Hidden by default */
+            border: 3px dashed #fff;
+            box-shadow: 0 0 15px rgba(255, 255, 255, 0.5);
+        }
+        .explosion-effect {
+            position: absolute;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(255, 165, 0, 0.7); /* Orange explosion */
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            font-size: 4rem;
+            color: white;
+            text-shadow: 4px 4px 8px rgba(0, 0, 0, 0.5);
+            animation: explode 0.5s forwards;
+            z-index: 999;
+        }
+
+        @keyframes explode {
+            0% { opacity: 0; transform: scale(0); }
+            50% { opacity: 1; transform: scale(1.2); }
+            100% { opacity: 0; transform: scale(2); }
+        }
+
+        /* Responsive adjustments */
+        @media (max-width: 768px) {
+            .game-container {
+                padding: 10px;
+                aspect-ratio: 4 / 3;
+            }
+            canvas {
+                margin-bottom: 10px;
+            }
+            .game-button {
+                padding: 10px 20px;
+                font-size: 1.2rem;
+            }
+            .message-box {
+                font-size: 1.2rem;
+                padding: 15px 20px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="game-container">
+        <canvas id="gameCanvas"></canvas>
+        <div id="messageBox" class="message-box"></div>
+        <div id="explosionEffect" class="explosion-effect" style="display: none;">爆発！</div>
+
+        <div id="titleScreen" class="absolute inset-0 bg-white bg-opacity-90 flex flex-col justify-center items-center rounded-xl">
+            <h1 class="text-5xl font-bold mb-8 text-gray-800">麦麦米米クラブ</h1>
+            <p class="text-xl mb-6 text-gray-700">麦のときは「A」キー、米のときは「S」キーを押そう！</p>
+            <button id="startButton" class="game-button start-button">スタート</button>
+        </div>
+
+        <div id="gameOverScreen" class="absolute inset-0 bg-white bg-opacity-90 flex flex-col justify-center items-center rounded-xl hidden">
+            <h1 class="text-5xl font-bold mb-8 text-red-600">ゲームオーバー！</h1>
+            <p id="finalScoreGameOver" class="text-2xl mb-6 text-gray-700"></p>
+            <button id="restartButtonGameOver" class="game-button start-button">もう一度遊ぶ</button>
+        </div>
+
+        <div id="gameClearScreen" class="absolute inset-0 bg-white bg-opacity-90 flex flex-col justify-center items-center rounded-xl hidden">
+            <h1 class="text-5xl font-bold mb-8 text-green-600">クリア！</h1>
+            <p id="finalScoreGameClear" class="text-2xl mb-6 text-gray-700"></p>
+            <button id="restartButtonGameClear" class="game-button start-button">もう一度遊ぶ</button>
+        </div>
+
+        <div class="ui-panel">
+            <div class="text-2xl font-bold text-gray-800">米: <span id="riceCountDisplay">0</span> / 10</div>
+            <div class="text-2xl font-bold text-red-600">麦ミス: <span id="barleyMistakeCountDisplay">0</span> / 10</div>
+        </div>
+    </div>
+
+    <script type="module">
+        // Firebase imports (placeholder for potential future use, not directly used in this version)
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
+        import { getAuth, signInAnonymously, signInWithCustomToken } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+        import { getFirestore } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+
+        // Global variables for Firebase (MANDATORY TO USE)
+        const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-app-id';
+        const firebaseConfig = typeof __firebase_config !== 'undefined' ? JSON.parse(__firebase_config) : {};
+        const initialAuthToken = typeof __initial_auth_token !== 'undefined' ? __initial_auth_token : null;
+
+        let app, db, auth;
+        let userId = 'anonymous'; // Default to anonymous
+
+        // Initialize Firebase and authenticate
+        const initFirebase = async () => {
+            try {
+                if (Object.keys(firebaseConfig).length > 0) {
+                    app = initializeApp(firebaseConfig);
+                    db = getFirestore(app);
+                    auth = getAuth(app);
+
+                    if (initialAuthToken) {
+                        await signInWithCustomToken(auth, initialAuthToken);
+                    } else {
+                        await signInAnonymously(auth);
+                    }
+                    userId = auth.currentUser?.uid || crypto.randomUUID();
+                    console.log("Firebase initialized. User ID:", userId);
+                } else {
+                    console.warn("Firebase config not provided. Running without Firebase.");
+                }
+            } catch (error) {
+                console.error("Error initializing Firebase:", error);
+                // Fallback to anonymous if auth fails
+                userId = crypto.randomUUID();
+            }
+        };
+
+        // Call Firebase initialization
+        initFirebase();
+
+
+        const canvas = document.getElementById('gameCanvas');
+        const ctx = canvas.getContext('2d');
+        const startButton = document.getElementById('startButton');
+        const restartButtonGameOver = document.getElementById('restartButtonGameOver');
+        const restartButtonGameClear = document.getElementById('restartButtonGameClear');
+        const titleScreen = document.getElementById('titleScreen');
+        const gameOverScreen = document.getElementById('gameOverScreen');
+        const gameClearScreen = document.getElementById('gameClearScreen');
+        const riceCountDisplay = document.getElementById('riceCountDisplay');
+        const barleyMistakeCountDisplay = document.getElementById('barleyMistakeCountDisplay');
+        const finalScoreGameOver = document.getElementById('finalScoreGameOver');
+        const finalScoreGameClear = document.getElementById('finalScoreGameClear');
+        const messageBox = document.getElementById('messageBox');
+        const explosionEffect = document.getElementById('explosionEffect');
+
+        let gameState = 'title'; // 'title', 'playing', 'gameOver', 'gameClear'
+        let dishes = [];
+        let riceCount = 0;
+        let barleyMistakeCount = 0;
+        let dishSpeed = 2; // Pixels per frame
+        let dishSpawnInterval = 1500; // Milliseconds
+        let lastSpawnTime = 0;
+        let animationFrameId;
+
+        // Dish properties
+        const DISH_WIDTH = 80;
+        const DISH_HEIGHT = 20;
+        const DISH_RADIUS = 10;
+        const FOOD_RADIUS = 20;
+        const CONVEYOR_Y = 0.6; // Y position of conveyor belt (percentage of canvas height)
+        const PLAYER_ZONE_X = 0.2; // X position of player interaction zone (percentage of canvas width)
+
+        // Adjust canvas size dynamically
+        const resizeCanvas = () => {
+            const container = canvas.parentElement;
+            canvas.width = container.clientWidth;
+            canvas.height = container.clientWidth * (9 / 16); // Maintain 16:9 aspect ratio
+            if (gameState === 'playing') {
+                drawGame(); // Redraw immediately on resize
+            }
+        };
+
+        window.addEventListener('resize', resizeCanvas);
+        window.onload = () => {
+            resizeCanvas(); // Initial resize
+            // Initialize game state or start animation loop here if needed
+            // For this game, the loop starts after "Start" button click
+        };
+
+        // Dish Class
+        class Dish {
+            constructor(type, x, y) {
+                this.type = type; // 'barley' or 'rice'
+                this.x = x;
+                this.y = y;
+                this.width = DISH_WIDTH;
+                this.height = DISH_HEIGHT;
+                this.foodRadius = FOOD_RADIUS;
+                this.passed = false; // To track if it passed the player zone
+            }
+
+            draw() {
+                // Draw plate (hand-drawn style)
+                ctx.beginPath();
+                ctx.moveTo(this.x + DISH_RADIUS, this.y);
+                ctx.lineTo(this.x + this.width - DISH_RADIUS, this.y);
+                ctx.arcTo(this.x + this.width, this.y, this.x + this.width, this.y + DISH_RADIUS, DISH_RADIUS);
+                ctx.lineTo(this.x + this.width, this.y + this.height - DISH_RADIUS);
+                ctx.arcTo(this.x + this.width, this.y + this.height, this.x + this.width - DISH_RADIUS, this.y + this.height, DISH_RADIUS);
+                ctx.lineTo(this.x + DISH_RADIUS, this.y + this.height);
+                ctx.arcTo(this.x, this.y + this.height, this.x, this.y + this.height - DISH_RADIUS, DISH_RADIUS);
+                ctx.lineTo(this.x, this.y + DISH_RADIUS);
+                ctx.arcTo(this.x, this.y, this.x + DISH_RADIUS, this.y, DISH_RADIUS);
+                ctx.closePath();
+                ctx.fillStyle = '#f5f5dc'; // Cream color for plate
+                ctx.fill();
+                ctx.strokeStyle = '#666';
+                ctx.lineWidth = 2;
+                ctx.stroke();
+
+                // Draw food (hand-drawn style)
+                ctx.beginPath();
+                ctx.arc(this.x + this.width / 2, this.y + this.height / 2, this.foodRadius, 0, Math.PI * 2);
+                if (this.type === 'barley') {
+                    ctx.fillStyle = '#d2b48c'; // Tan for barley
+                    ctx.fill();
+                    // Draw small barley grains
+                    for (let i = 0; i < 5; i++) {
+                        const angle = Math.random() * Math.PI * 2;
+                        const dist = Math.random() * (this.foodRadius - 5);
+                        ctx.beginPath();
+                        ctx.arc(this.x + this.width / 2 + Math.cos(angle) * dist, this.y + this.height / 2 + Math.sin(angle) * dist, 3, 0, Math.PI * 2);
+                        ctx.fillStyle = '#a08060';
+                        ctx.fill();
+                    }
+                } else { // rice
+                    ctx.fillStyle = '#ffffff'; // White for rice
+                    ctx.fill();
+                    // Draw small rice grains
+                    for (let i = 0; i < 7; i++) {
+                        const angle = Math.random() * Math.PI * 2;
+                        const dist = Math.random() * (this.foodRadius - 5);
+                        ctx.beginPath();
+                        ctx.ellipse(this.x + this.width / 2 + Math.cos(angle) * dist, this.y + this.height / 2 + Math.sin(angle) * dist, 2, 4, angle, 0, Math.PI * 2);
+                        ctx.fillStyle = '#e0e0e0';
+                        ctx.fill();
+                    }
+                }
+                ctx.strokeStyle = '#333';
+                ctx.lineWidth = 1;
+                ctx.stroke();
+            }
+
+            update() {
+                this.x -= dishSpeed;
+            }
+        }
+
+        // Draw game elements
+        function drawGame() {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+            // Draw background (simple rotating sushi restaurant vibe)
+            ctx.fillStyle = '#a0c0a0'; // Light green wall
+            ctx.fillRect(0, 0, canvas.width, canvas.height * 0.5);
+            ctx.fillStyle = '#80a080'; // Darker green for lower wall
+            ctx.fillRect(0, canvas.height * 0.5, canvas.width, canvas.height * 0.5);
+
+            // Draw conveyor belt
+            const conveyorY = canvas.height * CONVEYOR_Y;
+            const conveyorHeight = canvas.height * 0.15;
+            ctx.fillStyle = '#604020'; // Brown for conveyor
+            ctx.fillRect(0, conveyorY, canvas.width, conveyorHeight);
+            ctx.strokeStyle = '#302010'; // Darker brown for lines
+            ctx.lineWidth = 4;
+            ctx.strokeRect(0, conveyorY, canvas.width, conveyorHeight);
+
+            // Draw player area (a simple rectangle on the left)
+            const playerZoneWidth = canvas.width * 0.05;
+            const playerZoneX = canvas.width * PLAYER_ZONE_X;
+            ctx.fillStyle = 'rgba(255, 255, 0, 0.3)'; // Semi-transparent yellow
+            ctx.fillRect(playerZoneX, conveyorY, playerZoneWidth, conveyorHeight);
+            ctx.strokeStyle = '#ffcc00';
+            ctx.lineWidth = 3;
+            ctx.strokeRect(playerZoneX, conveyorY, playerZoneWidth, conveyorHeight);
+
+            // Draw dishes
+            dishes.forEach(dish => dish.draw());
+
+            // Update UI displays
+            riceCountDisplay.textContent = riceCount;
+            barleyMistakeCountDisplay.textContent = barleyMistakeCount;
+        }
+
+        // Game loop
+        function gameLoop(currentTime) {
+            if (gameState !== 'playing') {
+                cancelAnimationFrame(animationFrameId);
+                return;
+            }
+
+            // Spawn new dish
+            if (currentTime - lastSpawnTime > dishSpawnInterval) {
+                const type = Math.random() < 0.5 ? 'barley' : 'rice';
+                dishes.push(new Dish(type, canvas.width, canvas.height * CONVEYOR_Y + (canvas.height * 0.15 - DISH_HEIGHT) / 2));
+                lastSpawnTime = currentTime;
+            }
+
+            // Update and draw dishes
+            dishes.forEach(dish => {
+                dish.update();
+            });
+
+            // Filter out dishes that have gone off-screen or passed the player zone without interaction
+            dishes = dishes.filter(dish => {
+                const dishRightEdge = dish.x + dish.width;
+                const playerZoneRightEdge = canvas.width * PLAYER_ZONE_X + canvas.width * 0.05;
+
+                // If dish passes player zone without interaction, it's a mistake
+                if (!dish.passed && dishRightEdge < playerZoneRightEdge) {
+                    if (dish.type === 'rice') {
+                        barleyMistakeCount++; // Missing rice is a mistake
+                        showTemporaryMessage("米を見逃した！", 'red');
+                    }
+                    dish.passed = true; // Mark as passed to avoid multiple counts
+                    return false; // Remove dish
+                }
+                return dish.x + dish.width > 0; // Keep if still on screen
+            });
+
+            drawGame();
+            checkGameConditions();
+            animationFrameId = requestAnimationFrame(gameLoop);
+        }
+
+        // Handle key presses
+        document.addEventListener('keydown', (e) => {
+            if (gameState !== 'playing') return;
+
+            const playerZoneXStart = canvas.width * PLAYER_ZONE_X;
+            const playerZoneXEnd = playerZoneXStart + canvas.width * 0.05;
+
+            // Find the first dish in the player zone
+            const dishInZoneIndex = dishes.findIndex(dish =>
+                dish.x + dish.width > playerZoneXStart && dish.x < playerZoneXEnd
+            );
+
+            if (dishInZoneIndex !== -1) {
+                const dish = dishes[dishInZoneIndex];
+                if (e.key === 'a' || e.key === 'A') { // Pressed A for barley
+                    if (dish.type === 'barley') {
+                        // Correct: successfully ignored barley
+                        showTemporaryMessage("麦！", 'green');
+                    } else {
+                        // Incorrect: pressed A for rice
+                        barleyMistakeCount++;
+                        showTemporaryMessage("米なのに麦と判断した！", 'red');
+                    }
+                    dishes.splice(dishInZoneIndex, 1); // Remove dish
+                } else if (e.key === 's' || e.key === 'S') { // Pressed S for rice
+                    if (dish.type === 'rice') {
+                        // Correct: selected rice
+                        riceCount++;
+                        showTemporaryMessage("旨い！", 'green');
+                        if (riceCount === 5) {
+                            generateGeminiMessage("米を五枚選んだ際に、『その選択が、宇宙の摂理を歪めた』とGeminiがコメントする。");
+                        }
+                    } else {
+                        // Incorrect: pressed S for barley
+                        barleyMistakeCount++;
+                        showTemporaryMessage("麦なのに米と判断した！", 'red');
+                    }
+                    dishes.splice(dishInZoneIndex, 1); // Remove dish
+                }
+            } else {
+                // No dish in zone, or pressed wrong key without a dish
+                // This scenario could also count as a mistake if desired, but for now, only active dish interaction counts.
+                // console.log("No dish in player zone or wrong key pressed.");
+            }
+            checkGameConditions();
+        });
+
+        function checkGameConditions() {
+            if (riceCount >= 10) {
+                gameState = 'gameClear';
+                finalScoreGameClear.textContent = `米を ${riceCount} 枚選びました！`;
+                gameClearScreen.classList.remove('hidden');
+                explosionEffect.style.display = 'flex'; // Show explosion
+                generateGeminiMessage("ゲームクリア時のシュールなメッセージを生成してください。");
+                setTimeout(() => {
+                    explosionEffect.style.display = 'none'; // Hide after animation
+                }, 1000); // Duration of explosion animation
+            } else if (barleyMistakeCount >= 10) {
+                gameState = 'gameOver';
+                finalScoreGameOver.textContent = `麦ミスが ${barleyMistakeCount} 回になりました！`;
+                gameOverScreen.classList.remove('hidden');
+                generateGeminiMessage("ゲームオーバー時のシュールなメッセージを生成してください。");
+            }
+        }
+
+        function resetGame() {
+            dishes = [];
+            riceCount = 0;
+            barleyMistakeCount = 0;
+            lastSpawnTime = 0;
+            riceCountDisplay.textContent = 0;
+            barleyMistakeCountDisplay.textContent = 0;
+            messageBox.style.display = 'none';
+            explosionEffect.style.display = 'none';
+            gameOverScreen.classList.add('hidden');
+            gameClearScreen.classList.add('hidden');
+            titleScreen.classList.remove('hidden'); // Go back to title screen
+            gameState = 'title';
+        }
+
+        startButton.addEventListener('click', () => {
+            titleScreen.classList.add('hidden');
+            gameState = 'playing';
+            lastSpawnTime = performance.now(); // Initialize spawn time
+            animationFrameId = requestAnimationFrame(gameLoop);
+        });
+
+        restartButtonGameOver.addEventListener('click', resetGame);
+        restartButtonGameClear.addEventListener('click', resetGame);
+
+        function showTemporaryMessage(message, color = 'white', duration = 1000) {
+            messageBox.textContent = message;
+            messageBox.style.color = color;
+            messageBox.style.display = 'block';
+            setTimeout(() => {
+                messageBox.style.display = 'none';
+            }, duration);
+        }
+
+        // Gemini LLM integration
+        async function generateGeminiMessage(prompt) {
+            messageBox.textContent = "Geminiが考えています...";
+            messageBox.style.color = 'yellow';
+            messageBox.style.display = 'block';
+
+            let chatHistory = [];
+            chatHistory.push({ role: "user", parts: [{ text: prompt }] });
+
+            const payload = { contents: chatHistory };
+            const apiKey = ""; // Canvas will provide this automatically
+            const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${apiKey}`;
+
+            try {
+                const response = await fetch(apiUrl, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload)
+                });
+                const result = await response.json();
+
+                if (result.candidates && result.candidates.length > 0 &&
+                    result.candidates[0].content && result.candidates[0].content.parts &&
+                    result.candidates[0].content.parts.length > 0) {
+                    const text = result.candidates[0].content.parts[0].text;
+                    showTemporaryMessage(text, 'white', 3000); // Display Gemini's message for 3 seconds
+                } else {
+                    console.error("Gemini API response structure unexpected:", result);
+                    showTemporaryMessage("Geminiからのメッセージがありませんでした。", 'orange', 2000);
+                }
+            } catch (error) {
+                console.error("Error calling Gemini API:", error);
+                showTemporaryMessage("Geminiとの通信エラーが発生しました。", 'red', 2000);
+            }
+        }
+
+        // Placeholder for sound (as external files cannot be loaded directly)
+        function playBackgroundMusic() {
+            // In a real browser environment, you would load an audio file like this:
+            // const audio = new Audio('path/to/your/sushi_edm.mp3');
+            // audio.loop = true;
+            // audio.play().catch(e => console.error("Audio play failed:", e));
+            console.log("音楽再生のプレースホルダー: '寿司食いねえ'風EDMをここに実装できます。");
+            // For a "Noda Game" feel, maybe some simple Tone.js beats could be added here
+            // Example (requires Tone.js library):
+            /*
+            import * as Tone from 'tone';
+            const synth = new Tone.Synth().toDestination();
+            const loop = new Tone.Loop(time => {
+                synth.triggerAttackRelease("C4", "8n", time);
+            }, "4n").start(0);
+            Tone.Transport.start();
+            */
+        }
+        // Call this when the game starts or when the user interacts to bypass autoplay restrictions
+        // playBackgroundMusic(); // Uncomment in a real environment
+    </script>
+</body>
+</html>
